@@ -2,66 +2,129 @@ import { useState, useMemo } from 'react';
 import { css } from '@emotion/react';
 import { Text } from '_tosslib/components';
 import { colors } from '_tosslib/constants/colors';
-import type { Room, Reservation } from '_tosslib/server/types';
-import { TIME_SLOTS, calculateTimelinePosition, calculateTimelineWidth } from '../utils/timeUtils';
-import { formatEquipmentList } from '../utils/formatEquipment';
 
-interface TimelineProps {
-  hourLabels: string[];
-  data: {
-    room: Room;
-    reservations: Reservation[];
-  }[];
+// 제네릭 타입 정의 - 도메인 독립적
+// 컨벤션: row와 각 cell은 id 필드를 가져야 함
+// 컨벤션: cell은 start, end 필드를 가져야 함 (시간 정보)
+export interface TimelineData<TRow extends { id: string }, TCell extends { id: string; start: string; end: string }> {
+  row: TRow;
+  cells: TCell[];
 }
 
-export function Timeline({ hourLabels, data }: TimelineProps) {
-  const [activeReservationId, setActiveReservationId] = useState<string | null>(null);
+type LabelInterval = 'hour' | 'halfHour';
+
+interface TimeRange {
+  start: number;
+  end: number;
+  labelInterval?: LabelInterval;
+}
+
+interface TimelineProps<TRow extends { id: string }, TCell extends { id: string; start: string; end: string }> {
+  data: TimelineData<TRow, TCell>[];
+  getRowLabel: (row: TRow) => string;
+  timeRange?: TimeRange;
+  renderTooltip?: (cell: TCell, row: TRow) => React.ReactNode;
+  getCellAriaLabel?: (cell: TCell, row: TRow) => string;
+}
+
+export function Timeline<TRow extends { id: string }, TCell extends { id: string; start: string; end: string }>({
+  data,
+  getRowLabel,
+  renderTooltip,
+  getCellAriaLabel,
+  timeRange = { start: 9, end: 20, labelInterval: 'hour' },
+}: TimelineProps<TRow, TCell>) {
+  const [activeCellKey, setActiveCellKey] = useState<string | null>(null);
+
+  const { start: timelineStart, end: timelineEnd, labelInterval = 'hour' } = timeRange;
+
+  // position 계산을 직접 수행 (UI 책임)
+  const totalMinutes = (timelineEnd - timelineStart) * 60;
+
+  const calculatePosition = (time: string): number => {
+    const [h, m] = time.split(':').map(Number);
+    return ((h - timelineStart) * 60 + m) / totalMinutes * 100;
+  };
+
+  // colLabels 자동 생성
+  const colLabels = useMemo(() => {
+    const labels: string[] = [];
+    for (let h = timelineStart; h <= timelineEnd; h++) {
+      labels.push(`${String(h).padStart(2, '0')}:00`);
+      if (labelInterval === 'halfHour' && h < timelineEnd) {
+        labels.push(`${String(h).padStart(2, '0')}:30`);
+      }
+    }
+    return labels;
+  }, [timelineStart, timelineEnd, labelInterval]);
 
   return (
     <div
       role="table"
-      aria-label="회의실별 예약 타임라인"
+      aria-label="타임라인"
       css={css`
         background: ${colors.grey50};
         border-radius: 14px;
         padding: 16px;
       `}
     >
-      <TimelineHeader hourLabels={hourLabels} />
+      <TimelineHeader colLabels={colLabels} />
 
-      {data.map((data, index) => (
+      {data.map((item, index) => (
         <TimelineRow
-          key={data.room.id}
-          room={data.room}
-          reservations={data.reservations}
-          activeReservationId={activeReservationId}
-          onReservationClick={setActiveReservationId}
+          key={item.row.id}
+          label={getRowLabel(item.row)}
           isFirst={index === 0}
-        />
+        >
+          {item.cells.map((cell) => {
+            const isActive = activeCellKey === cell.id;
+            const left = calculatePosition(cell.start);
+            const width = calculatePosition(cell.end) - left;
+
+            return (
+              <TimelineCell
+                key={cell.id}
+                position={{ left, width }}
+              >
+                <CellBlock
+                  isActive={isActive}
+                  onClick={() => setActiveCellKey(isActive ? null : cell.id)}
+                  ariaLabel={getCellAriaLabel?.(cell, item.row)}
+                  ariaExpanded={isActive}
+                />
+
+                {isActive && renderTooltip && (
+                  <Tooltip>{renderTooltip(cell, item.row)}</Tooltip>
+                )}
+              </TimelineCell>
+            );
+          })}
+        </TimelineRow>
       ))}
     </div>
   );
 }
 
-Timeline.Loading = function name() {
-  return <div>로딩 중...</div>
-}
+Timeline.Loading = function TimelineLoading() {
+  return <div>로딩 중...</div>;
+};
 
 interface TimelineHeaderProps {
-  hourLabels: string[];
+  colLabels: string[];
 }
 
-export function TimelineHeader({ hourLabels }: TimelineHeaderProps) {
+function TimelineHeader({ colLabels }: TimelineHeaderProps) {
   return (
     <div css={css`display: flex; align-items: flex-end; margin-bottom: 8px;`}>
       <div css={css`width: 80px; flex-shrink: 0; padding-right: 8px;`} />
       <div css={css`flex: 1; position: relative; height: 18px;`}>
-        {hourLabels.map((time) => {
-          const left = calculateTimelinePosition(time);
-          
+        {colLabels.map((label, index) => {
+          // 균등 분배 (첫 시간이 0%, 마지막 시간이 100%)
+          const left = (index / (colLabels.length - 1)) * 100;
+
           return (
             <Text
-              key={time}
+              key={label}
               typography="t7"
               fontWeight="regular"
               color={colors.grey400}
@@ -73,7 +136,7 @@ export function TimelineHeader({ hourLabels }: TimelineHeaderProps) {
                 letter-spacing: -0.3px;
               `}
             >
-              {time.slice(0, 2)}
+              {label.slice(0, 2)}
             </Text>
           );
         })}
@@ -82,22 +145,13 @@ export function TimelineHeader({ hourLabels }: TimelineHeaderProps) {
   );
 }
 
-
 interface TimelineRowProps {
-  room: Room;
-  reservations: Reservation[];
-  activeReservationId: string | null;
-  onReservationClick: (id: string) => void;
+  label: string;
+  children: React.ReactNode;
   isFirst?: boolean;
 }
 
-export function TimelineRow({
-  room,
-  reservations,
-  activeReservationId,
-  onReservationClick,
-  isFirst = false,
-}: TimelineRowProps) {
+function TimelineRow({ label, children, isFirst = false }: TimelineRowProps) {
   return (
     <div
       css={css`
@@ -115,7 +169,7 @@ export function TimelineRow({
           ellipsisAfterLines={1}
           css={css`font-size: 12px;`}
         >
-          {room.name}
+          {label}
         </Text>
       </div>
       <div
@@ -128,109 +182,101 @@ export function TimelineRow({
           overflow: visible;
         `}
       >
-        {reservations.map((reservation) => (
-          <ReservationBlock
-            key={reservation.id}
-            reservation={reservation}
-            roomName={room.name}
-            isActive={activeReservationId === reservation.id}
-            onClick={() =>
-              onReservationClick(
-                activeReservationId === reservation.id ? '' : reservation.id
-              )
-            }
-          />
-        ))}
+        {children}
       </div>
     </div>
   );
 }
 
-interface ReservationBlockProps {
-  reservation: Reservation;
-  roomName: string;
-  isActive: boolean;
-  onClick: () => void;
+interface TimelineCellProps {
+  position: { left: number; width: number };
+  children: React.ReactNode;
 }
 
-export function ReservationBlock({
-  reservation,
-  roomName,
-  isActive,
-  onClick,
-}: ReservationBlockProps) {
-  const left = calculateTimelinePosition(reservation.start);
-  const width = calculateTimelineWidth(reservation.start, reservation.end);
-
+function TimelineCell({ position, children }: TimelineCellProps) {
   return (
     <div
       css={css`
         position: absolute;
-        left: ${left}%;
-        width: ${width}%;
+        left: ${position.left}%;
+        width: ${position.width}%;
         height: 100%;
       `}
     >
-      <div
-        role="button"
-        aria-label={`${roomName} ${reservation.start}-${reservation.end} 예약 상세`}
-        aria-expanded={isActive}
-        tabIndex={0}
-        onClick={onClick}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onClick();
-          }
-        }}
-        css={css`
-          width: 100%;
-          height: 100%;
-          background: ${colors.blue400};
-          border-radius: 4px;
-          opacity: ${isActive ? 1 : 0.75};
-          cursor: pointer;
-          transition: opacity 0.15s;
-          &:hover {
-            opacity: 1;
-          }
-          &:focus {
-            outline: 2px solid ${colors.blue600};
-            outline-offset: 2px;
-          }
-        `}
-      />
-      {isActive && (
-        <div
-          role="tooltip"
-          css={css`
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            margin-top: 6px;
-            background: ${colors.grey900};
-            color: ${colors.white};
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            white-space: nowrap;
-            z-index: 10;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-            line-height: 1.6;
-          `}
-        >
-          <div>
-            {reservation.start} ~ {reservation.end}
-          </div>
-          
-          <div>{reservation.attendees}명</div>
+      {children}
+    </div>
+  );
+}
 
-          {reservation.equipment.length > 0 && (
-            <div>{formatEquipmentList(reservation.equipment)}</div>
-          )}
-        </div>
-      )}
+interface CellBlockProps {
+  isActive: boolean;
+  onClick: () => void;
+  ariaLabel?: string;
+  ariaExpanded?: boolean;
+}
+
+function CellBlock({
+  isActive,
+  onClick,
+  ariaLabel,
+  ariaExpanded
+}: CellBlockProps) {
+  return (
+    <div
+      role="button"
+      aria-label={ariaLabel}
+      aria-expanded={ariaExpanded}
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      css={css`
+        width: 100%;
+        height: 100%;
+        background: ${colors.blue400};
+        border-radius: 4px;
+        opacity: ${isActive ? 1 : 0.75};
+        cursor: pointer;
+        transition: opacity 0.15s;
+        &:hover {
+          opacity: 1;
+        }
+        &:focus {
+          outline: 2px solid ${colors.blue600};
+          outline-offset: 2px;
+        }
+      `}
+    />
+  );
+}
+
+// 툴팁 컴포넌트 (스타일만 담당)
+function Tooltip({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      role="renderTooltip"
+      css={css`
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-top: 6px;
+        background: ${colors.grey900};
+        color: ${colors.white};
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 10;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        line-height: 1.6;
+      `}
+    >
+      {children}
     </div>
   );
 }

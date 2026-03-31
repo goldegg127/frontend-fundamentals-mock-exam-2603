@@ -10,13 +10,12 @@ import { myReservationsQueryOptions, roomsQueryOptions, reservationsQueryOptions
 import { getTodayString } from './utils/formatDate';
 import { Divider } from '../../shared/components/Divider';
 import { DatePicker } from './components/DatePicker';
-import { Timeline } from '../../shared/components/Timeline';
+import { Timeline } from './components/Timeline';
 import { CtaButton } from './components/CtaButton';
 import { Card } from "./components/Card";
-import { ReservationBlock } from './components/ReservationBlock';
-import { getRoomName, getReservationSpec, getRoomBookingStatus, getTimeLabels } from "./domain";
+import { getRoomName, getReservationSpec, getBookingRoomTable, TIMELINE_START, TIMELINE_END } from "./domain";
 import { useCancelReservation } from "./hooks/useCancelReservation";
-import { TIME_SLOTS } from './utils/timeUtils';
+import { formatEquipmentList } from './utils/formatEquipment';
 
 export function ReservationStatusPage() {
   const navigate = useNavigate();
@@ -61,19 +60,19 @@ export function ReservationStatusPage() {
           <SuspenseQueries queries={[roomsQueryOptions(), reservationsQueryOptions(selectedDate)]}>
             {([{ data: rooms }, { data: reservations }]) => (
               <Timeline
-                data={getRoomBookingStatus(rooms, reservations)}
-                colLabels={getTimeLabels(TIME_SLOTS, ':00')}
-                rowLabel={(room) => room.name}
-              >
-                {(reservation, room, isActive, onClick) => (
-                  <ReservationBlock
-                    reservation={reservation}
-                    roomName={room.name}
-                    isActive={isActive}
-                    onClick={onClick}
-                  />
+                getRowLabel={(room) => room.name}
+                data={getBookingRoomTable(rooms, reservations)}
+                getCellAriaLabel={(cell, room) => `${room.name} ${cell.start}-${cell.end} 예약 상세`}
+                renderTooltip={(cell) => (
+                  <>
+                    <div>{cell.start} ~ {cell.end}</div>
+                    <div>{cell.attendees}명</div>
+                    {cell.equipment.length > 0 && (
+                      <div>{formatEquipmentList(cell.equipment)}</div>
+                    )}
+                  </>
                 )}
-              </Timeline>
+              />
             )}
           </SuspenseQueries>
         </Suspense>

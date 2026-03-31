@@ -1,46 +1,36 @@
 /**
- * 타임라인 상수
+ * 시간 간격 타입
  */
-export const TIMELINE_START = 9; // 09:00
-export const TIMELINE_END = 20; // 20:00
-export const TOTAL_MINUTES = (TIMELINE_END - TIMELINE_START) * 60;
+export type TimeInterval = 'hour' | 'halfHour';
 
 /**
- * 시간 슬롯 배열 생성
+ * 시작 시간부터 종료 시간까지 지정된 간격으로 시간 레이블을 생성합니다.
+ * (순수 유틸 함수 - 도메인 무관)
+ *
+ * @param startHour - 시작 시간 (0-23)
+ * @param endHour - 종료 시간 (0-23)
+ * @param interval - 시간 간격 ('hour': 1시간 단위, 'halfHour': 30분 단위)
+ * @returns 시간 레이블 배열 (예: ['09:00', '10:00', ...])
+ *
+ * @example
+ * generateTimeLabels(9, 20, 'hour')      // ['09:00', '10:00', ..., '20:00']
+ * generateTimeLabels(9, 20, 'halfHour')  // ['09:00', '09:30', '10:00', ..., '20:00']
+ * generateTimeLabels(6, 23, 'hour')      // ['06:00', '07:00', ..., '23:00']
  */
-export function generateTimeSlots(): string[] {
-  const slots: string[] = [];
-  for (let h = 9; h <= 20; h++) {
-    slots.push(`${String(h).padStart(2, '0')}:00`);
-    if (h < 20) {
-      slots.push(`${String(h).padStart(2, '0')}:30`);
+export function generateTimeLabels(
+  startHour: number,
+  endHour: number,
+  interval: TimeInterval = 'hour'
+): string[] {
+  const labels: string[] = [];
+
+  for (let h = startHour; h <= endHour; h++) {
+    labels.push(`${String(h).padStart(2, '0')}:00`);
+
+    if (interval === 'halfHour' && h < endHour) {
+      labels.push(`${String(h).padStart(2, '0')}:30`);
     }
   }
-  return slots;
-}
 
-export const TIME_SLOTS = generateTimeSlots();
-
-/**
- * 시간을 타임라인 시작 기준 분으로 변환합니다.
- * @param time - HH:mm 형식의 시간
- * @returns 타임라인 시작(09:00) 기준 경과 분
- */
-export function timeToMinutes(time: string): number {
-  const [h, m] = time.split(':').map(Number);
-  return (h - TIMELINE_START) * 60 + m;
-}
-
-/**
- * 시간 범위의 너비를 백분율로 계산합니다.
- */
-export function calculateTimelineWidth(start: string, end: string): number {
-  return ((timeToMinutes(end) - timeToMinutes(start)) / TOTAL_MINUTES) * 100;
-}
-
-/**
- * 시간의 타임라인 내 위치를 백분율로 계산합니다.
- */
-export function calculateTimelinePosition(time: string): number {
-  return (timeToMinutes(time) / TOTAL_MINUTES) * 100;
+  return labels;
 }
