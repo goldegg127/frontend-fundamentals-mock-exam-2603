@@ -53,13 +53,39 @@ export function Card({ top, bottom, right }: CardProps) {
 }
 
 interface CancelButtonProps {
+  label?: React.ReactNode;
   onClick?: (e: React.MouseEvent) => void;
+  disabled?: boolean;
 }
 
-Card.CancelButton = function CancelButton({ onClick }: CancelButtonProps) {
+Card.CancelButton = function CancelButton({ label = '취소', onClick, disabled }: CancelButtonProps) {
   return (
-    <Button type="danger" style="weak" size="small" onClick={onClick}>
-      취소
+    <Button type="danger" style="weak" size="small" onClick={onClick} disabled={disabled}>
+      {label}
     </Button>
   );
 };
+
+Card.Empty = function () {
+  return (
+    <div
+      css={css`
+        padding: 40px 0;
+        text-align: center;
+        background: ${colors.grey50};
+        border-radius: 14px;
+        color: ${colors.grey500};
+      `}
+    >
+      예약 내역이 없습니다.
+  </div>
+  );
+}
+
+Card.Loading = function () {
+  return <div>로딩 중...</div>;
+}
+
+Card.Error = function () {
+  return <div>에러가 발생했습니다. 다시 시도해주세요.</div>;
+}

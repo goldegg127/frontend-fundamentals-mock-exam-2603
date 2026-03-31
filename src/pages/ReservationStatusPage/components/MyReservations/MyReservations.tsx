@@ -6,8 +6,8 @@ import type { Room, Reservation } from '_tosslib/server/types';
 import { colors } from '_tosslib/constants/colors';
 import { getRooms, getMyReservations } from 'pages/remotes';
 import { formatEquipmentList } from '../../utils/formatEquipment';
-import { useCancelReservation } from './hooks/useCancelReservation';
-import { Card } from './Card';
+import { useCancelReservation } from '../../hooks/useCancelReservation';
+import { Card } from '../Card';
 
 export function MyReservations() {
   const [message, setMessage] = useState<string | null>(null);
