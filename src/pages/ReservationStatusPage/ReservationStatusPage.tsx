@@ -1,26 +1,48 @@
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { css } from '@emotion/react';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { SuspenseQueries } from '@suspensive/react-query'
 import { Suspense, ErrorBoundary } from '@suspensive/react'
 import { Spacing, Text } from '_tosslib/components';
 import { colors } from '_tosslib/constants/colors';
 import type { Reservation } from '_tosslib/server/types';
+import { Divider } from '../../shared/components/Divider';
 import { myReservationsQueryOptions, roomsQueryOptions, reservationsQueryOptions } from 'pages/queries';
 import { getTodayString } from './utils/formatDate';
-import { Divider } from '../../shared/components/Divider';
+import { getRoomName, getReservationSpec, getBookingRoomTable } from "./domain";
+import { useCancelReservation } from "./hooks/useCancelReservation";
+import { formatEquipmentList } from './utils/formatEquipment';
+
 import { DatePicker } from './components/DatePicker';
 import { Timeline } from './components/Timeline';
 import { CtaButton } from './components/CtaButton';
 import { Card } from "./components/Card";
-import { getRoomName, getReservationSpec, getBookingRoomTable, TIMELINE_START, TIMELINE_END } from "./domain";
-import { useCancelReservation } from "./hooks/useCancelReservation";
-import { formatEquipmentList } from './utils/formatEquipment';
+import { MessageBanner, type Message } from "./components/MessageBanner";
 
 export function ReservationStatusPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedDate, setSelectedDate] = useState(getTodayString());
+
   const cancelMutation = useCancelReservation();
+
+  const [message, setMessage] = useState<Message | null>(() => {
+    const state = location.state as { message?: string } | null;
+
+    return state?.message
+      ? { type: 'success', text: state.message }
+      : null;
+  });
+
+  useEffect(() => {
+    const state = location.state as { message?: string } | null;
+    if (!state?.message) return;
+
+    navigate('.', {
+      replace: true,
+      state: null,
+    });
+  }, [location.state, navigate]);
 
   return (
     <div css={css`background: ${colors.white}; padding-bottom: 40px;`}>
@@ -39,6 +61,7 @@ export function ReservationStatusPage() {
           </Text>
           <Spacing size={16} />
         </h2>
+
         <DatePicker
           value={selectedDate}
           onChange={setSelectedDate}
@@ -88,6 +111,14 @@ export function ReservationStatusPage() {
           <Spacing size={16} />
         </h2>
 
+        {message && (
+          <>
+            <MessageBanner type={message.type} text={message.text} />
+
+            <Spacing size={12} />
+          </>
+        )}
+
         <Suspense fallback={<Card.Loading />}>
           <SuspenseQueries
               queries={[
@@ -114,13 +145,19 @@ export function ReservationStatusPage() {
                               <Card.CancelButton
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  cancelMutation.mutate(reservation.id);
+
+                                  cancelMutation.mutate(reservation.id, {
+                                    onSuccess: () => {
+                                      setMessage({ type: 'success', text: '예약이 취소되었습니다.' });
+                                    },
+                                    onError: () => {
+                                      setMessage({ type: 'error', text: '취소에 실패했습니다.' });
+                                    },
+                                  });
                                 }}
-                              />
-                            }
+                              />}
                           />
-                        </li>
-                      ))
+                        </li>))
                   }
                 </ItemsContainer>
               )}

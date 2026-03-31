@@ -1,1 +1,0 @@
-export { MyReservations } from './MyReservations';

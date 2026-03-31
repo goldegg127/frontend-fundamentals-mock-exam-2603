@@ -2,10 +2,12 @@ import { css } from '@emotion/react';
 import { Text } from '_tosslib/components';
 import { colors } from '_tosslib/constants/colors';
 
-interface MessageBannerProps {
+export interface Message {
   type: 'success' | 'error';
   text: string;
 }
+
+type MessageBannerProps = Message;
 
 export function MessageBanner({ type, text }: MessageBannerProps) {
   return (
