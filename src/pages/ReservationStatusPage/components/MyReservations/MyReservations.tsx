@@ -1,20 +1,16 @@
 import { useState } from 'react';
 import { css } from '@emotion/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Text, Spacing } from '_tosslib/components';
-import { colors } from '_tosslib/constants/colors';
+import { Spacing, Text } from '_tosslib/components';
 import type { Room, Reservation } from '_tosslib/server/types';
+import { colors } from '_tosslib/constants/colors';
 import { getRooms, getMyReservations } from 'pages/remotes';
-import { ReservationItem } from './ReservationItem';
-import { MessageBanner } from './MessageBanner';
+import { formatEquipmentList } from '../../utils/formatEquipment';
 import { useCancelReservation } from './hooks/useCancelReservation';
+import { Card } from './Card';
 
-interface MyReservationsProps {
-  title: string;
-}
-
-export function MyReservations({ title }: MyReservationsProps) {
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+export function MyReservations() {
+  const [message, setMessage] = useState<string | null>(null);
   const cancelMutation = useCancelReservation();
 
   const { data: rooms } = useSuspenseQuery<Room[]>({
@@ -36,70 +32,66 @@ export function MyReservations({ title }: MyReservationsProps) {
   const handleCancel = async (id: string) => {
     try {
       await cancelMutation.mutateAsync(id);
-      setMessage({ type: 'success', text: '예약이 취소되었습니다.' });
+      setMessage('예약이 취소되었습니다.');
     } catch {
-      setMessage({ type: 'error', text: '취소에 실패했습니다.' });
+      setMessage('취소에 실패했습니다.');
     }
   };
 
-  return (
-    <section aria-labelledby="my-reservations-heading">
-      <header css={css`display: flex; align-items: baseline; gap: 6px;`}>
-        <Text
-          id="my-reservations-heading"
-          typography="t5"
-          fontWeight="bold"
-          color={colors.grey900}
-        >
-          {title}
-        </Text>
-  
-        {reservations.length > 0 && (
-          <Text typography="t7" fontWeight="medium" color={colors.grey500}>
-            {reservations.length}건
-          </Text>
-        )}
-      </header>
+  if (reservations.length === 0) {
+    return (
+      <div
+        css={css`
+          padding: 40px 0;
+          text-align: center;
+          background: ${colors.grey50};
+          border-radius: 14px;
+          color: ${colors.grey500};
+        `}
+      >
+        예약 내역이 없습니다.
+      </div>
+    );
+  }
 
-      <Spacing size={16} />
-
-      {/* 메시지 배너 */}
+  return <>
       {message && (
-        <>
-          <MessageBanner type={message.type} text={message.text} />
-          <Spacing size={12} />
-        </>
-      )}
-
-      {reservations.length === 0 ? (
+      <>
         <div
           css={css`
-            padding: 40px 0;
-            text-align: center;
-            background: ${colors.grey50};
-            border-radius: 14px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: ${colors.red50};
+            display: flex;
+            align-items: center;
+            gap: 8px;
           `}
         >
-          <Text typography="t6" color={colors.grey500}>
-            예약 내역이 없습니다.
+          <Text typography="t7" fontWeight="medium" color={colors.red500}>
+            {message}
           </Text>
         </div>
-      ) : (
-        <div
-          role="list"
-          css={css`display: flex; flex-direction: column; gap: 10px;`}
-        >
-          {reservations.map((reservation) => (
-            <div key={reservation.id} role="listitem">
-              <ReservationItem
-                reservation={reservation}
-                roomName={getRoomName(reservation.roomId)}
-                onCancel={handleCancel}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
+
+        <Spacing size={12} />
+      </>
+    )}
+
+    <ul css={css`list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;`}>
+      {reservations.map((reservation) => {
+
+        return (
+          <li key={reservation.id}>
+            <Card
+              top={getRoomName(reservation.roomId)}
+              bottom={`${reservation.date} ${reservation.start}~${reservation.end} · ${reservation.attendees}명 · ${formatEquipmentList(reservation.equipment)}`}
+              right={<Card.CancelButton onClick={(e) => {
+                e.stopPropagation();
+                handleCancel(reservation.id);
+              }} />}
+            />
+          </li>
+        );
+      })}
+    </ul>
+  </>;
 }
