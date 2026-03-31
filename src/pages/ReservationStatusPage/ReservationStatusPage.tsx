@@ -1,20 +1,22 @@
 import { css } from '@emotion/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SuspenseQueries, Mutation } from '@suspensive/react-query'
+import { SuspenseQueries } from '@suspensive/react-query'
 import { Suspense, ErrorBoundary } from '@suspensive/react'
 import { Spacing, Text } from '_tosslib/components';
 import { colors } from '_tosslib/constants/colors';
 import type { Reservation } from '_tosslib/server/types';
-import { myReservationsQueryOptions, roomsQueryOptions } from 'pages/queries';
+import { myReservationsQueryOptions, roomsQueryOptions, reservationsQueryOptions } from 'pages/queries';
 import { getTodayString } from './utils/formatDate';
 import { Divider } from '../../shared/components/Divider';
 import { DatePicker } from './components/DatePicker';
-import { Timeline } from './components/Timeline';
+import { Timeline } from '../../shared/components/Timeline';
 import { CtaButton } from './components/CtaButton';
 import { Card } from "./components/Card";
-import { getRoomName, getReservationSpec } from "./domain";
+import { ReservationBlock } from './components/ReservationBlock';
+import { getRoomName, getReservationSpec, getRoomBookingStatus, getTimeLabels } from "./domain";
 import { useCancelReservation } from "./hooks/useCancelReservation";
+import { TIME_SLOTS } from './utils/timeUtils';
 
 export function ReservationStatusPage() {
   const navigate = useNavigate();
@@ -54,8 +56,26 @@ export function ReservationStatusPage() {
           </Text>
           <Spacing size={16} />
         </h2>
-        <Suspense fallback={<div>로딩 중...</div>}>
-          <Timeline selected={selectedDate} />
+
+        <Suspense fallback={<Timeline.Loading />}>
+          <SuspenseQueries queries={[roomsQueryOptions(), reservationsQueryOptions(selectedDate)]}>
+            {([{ data: rooms }, { data: reservations }]) => (
+              <Timeline
+                data={getRoomBookingStatus(rooms, reservations)}
+                colLabels={getTimeLabels(TIME_SLOTS, ':00')}
+                rowLabel={(room) => room.name}
+              >
+                {(reservation, room, isActive, onClick) => (
+                  <ReservationBlock
+                    reservation={reservation}
+                    roomName={room.name}
+                    isActive={isActive}
+                    onClick={onClick}
+                  />
+                )}
+              </Timeline>
+            )}
+          </SuspenseQueries>
         </Suspense>
       </Section>
 

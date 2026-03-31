@@ -1,45 +1,21 @@
 import { useState, useMemo } from 'react';
 import { css } from '@emotion/react';
-import { useSuspenseQuery } from '@tanstack/react-query';
 import { Text } from '_tosslib/components';
 import { colors } from '_tosslib/constants/colors';
 import type { Room, Reservation } from '_tosslib/server/types';
-import { getRooms, getReservations } from 'pages/remotes';
 import { TIME_SLOTS, calculateTimelinePosition, calculateTimelineWidth } from '../utils/timeUtils';
 import { formatEquipmentList } from '../utils/formatEquipment';
 
 interface TimelineProps {
-  selected: string;
+  hourLabels: string[];
+  data: {
+    room: Room;
+    reservations: Reservation[];
+  }[];
 }
 
-export function Timeline({ selected }: TimelineProps) {
+export function Timeline({ hourLabels, data }: TimelineProps) {
   const [activeReservationId, setActiveReservationId] = useState<string | null>(null);
-
-  const { data: rooms } = useSuspenseQuery<Room[]>({
-    queryKey: ['rooms'],
-    queryFn: getRooms,
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const { data: reservations } = useSuspenseQuery<Reservation[]>({
-    queryKey: ['reservations', selected],
-    queryFn: () => getReservations(selected),
-    staleTime: 1000 * 60 * 1,
-  });
-
-  // 시간 헤더 (00분만)
-  const hourLabels = useMemo(
-    () => TIME_SLOTS.filter((t) => t.endsWith(':00')),
-    []
-  );
-
-  // 회의실별 예약 데이터
-  const timelineData = useMemo(() => {
-    return rooms.map((room) => ({
-      room,
-      reservations: reservations.filter((r) => r.roomId === room.id),
-    }));
-  }, [rooms, reservations]);
 
   return (
     <div
@@ -53,7 +29,7 @@ export function Timeline({ selected }: TimelineProps) {
     >
       <TimelineHeader hourLabels={hourLabels} />
 
-      {timelineData.map((data, index) => (
+      {data.map((data, index) => (
         <TimelineRow
           key={data.room.id}
           room={data.room}
@@ -67,6 +43,9 @@ export function Timeline({ selected }: TimelineProps) {
   );
 }
 
+Timeline.Loading = function name() {
+  return <div>로딩 중...</div>
+}
 
 interface TimelineHeaderProps {
   hourLabels: string[];

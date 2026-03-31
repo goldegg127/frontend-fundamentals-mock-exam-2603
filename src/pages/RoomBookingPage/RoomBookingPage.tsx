@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { Suspense, useState } from 'react';
+import { ReactNode, Suspense, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Top, Spacing, Button, Text } from '_tosslib/components';
@@ -109,29 +109,9 @@ export function RoomBookingPage() {
         </Top.Top03>
       </header>
 
-      {errorMessage && (
-        <div css={css`padding: 0 24px;`}>
-          <Spacing size={12} />
-          <div
-            css={css`
-              padding: 10px 14px;
-              border-radius: 10px;
-              background: ${colors.red50};
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            `}
-          >
-            <Text typography="t7" fontWeight="medium" color={colors.red500}>
-              {errorMessage}
-            </Text>
-          </div>
-        </div>
-      )}
-
       <Spacing size={24} />
 
-      <div css={css`padding: 0 24px;`}>
+      <Section>
         <Suspense fallback={<div>로딩 중...</div>}>
           <BookingFilter onFilterChange={handleFilterChange}>
             <BookingFilter.Title>예약 조건</BookingFilter.Title>
@@ -161,11 +141,11 @@ export function RoomBookingPage() {
             <BookingFilter.ValidationError />
           </BookingFilter>
         </Suspense>
-      </div>
+      </Section>
 
       <Divider />
 
-      <div css={css`padding: 0 24px;`}>
+      <Section>
         <Suspense fallback={<div>로딩 중...</div>}>
           <AvailableRoomList
             filter={filter}
@@ -182,9 +162,36 @@ export function RoomBookingPage() {
             </Button>
           </>
         )}
-      </div>
+
+
+      {errorMessage && (
+        <div css={css`padding: 0 24px;`}>
+          <Spacing size={12} />
+          <div
+            css={css`
+              padding: 10px 14px;
+              border-radius: 10px;
+              background: ${colors.red50};
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            `}
+          >
+            <Text typography="t7" fontWeight="medium" color={colors.red500}>
+              {errorMessage}
+            </Text>
+          </div>
+        </div>
+      )}
+      </Section>
 
       <Spacing size={24} />
     </main>
   );
+}
+
+function Section({children} : {children: ReactNode}) {
+  return <section css={css`padding: 0 24px;`}>
+    {children}
+  </section>
 }
