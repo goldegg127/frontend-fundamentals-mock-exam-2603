@@ -1,13 +1,5 @@
 import type { Room, Reservation, Equipment } from '_tosslib/server/types';
-
-interface BookingFilter {
-  date: string;
-  startTime: string;
-  endTime: string;
-  attendees: number;
-  equipment: Equipment[];
-  preferredFloor: number | null;
-}
+import type { BookingFilter } from '../types';
 
 export function filterAvailableRooms(
   rooms: Room[],
