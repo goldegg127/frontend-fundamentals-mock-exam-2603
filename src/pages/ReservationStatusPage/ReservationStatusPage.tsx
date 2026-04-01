@@ -86,7 +86,7 @@ export function ReservationStatusPage() {
               <Timeline
                 data={buildRoomReservationTimelineData(rooms, reservations)}
                 getRowLabel={(room) => room.name}
-                timeRange={{ start: TIMELINE_START, end: TIMELINE_END, labelInterval: 'halfHour' }}
+                timeRange={{ start: TIMELINE_START, end: TIMELINE_END, labelInterval: 'hour' }}
                 renderCell={(cell, room, isActive, onToggle) => (
                   <ReservationCell
                     reservation={cell}
@@ -139,8 +139,8 @@ export function ReservationStatusPage() {
                     : reservations.map((reservation) => (
                         <li key={reservation.id}>
                           <Card
-                            top={findRoomName(rooms, reservation.roomId)}
-                            bottom={formatReservationSummary(reservation)}
+                            title={findRoomName(rooms, reservation.roomId)}
+                            description={formatReservationSummary(reservation)}
                             right={
                               <Card.CancelButton
                                 onClick={(e) => {

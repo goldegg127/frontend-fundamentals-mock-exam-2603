@@ -4,12 +4,12 @@ import { colors } from '_tosslib/constants/colors';
 import type { ReactNode } from 'react';
 
 interface CardProps {
-  top: string;
-  bottom: string;
+  title: string;
+  description: string;
   right?: ReactNode;
 }
 
-export function Card({ top, bottom, right }: CardProps) {
+export function Card({ title, description, right }: CardProps) {
   return (
     <article
       css={css`
@@ -31,7 +31,7 @@ export function Card({ top, bottom, right }: CardProps) {
             margin-bottom: 4px;
           `}
         >
-          {top}
+          {title}
         </div>
         <div
           css={css`
@@ -39,7 +39,7 @@ export function Card({ top, bottom, right }: CardProps) {
             color: ${colors.grey600};
           `}
         >
-          {bottom}
+          {description}
         </div>
       </div>
       

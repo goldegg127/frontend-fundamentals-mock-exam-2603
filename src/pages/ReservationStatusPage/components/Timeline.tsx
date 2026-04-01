@@ -39,7 +39,7 @@ export function Timeline<TRow extends { id: string }, TCell extends { id: string
 }: TimelineProps<TRow, TCell>) {
   const [activeCellKey, setActiveCellKey] = useState<string | null>(null);
 
-  const { start: timelineStart, end: timelineEnd, labelInterval = 'hour' } = timeRange;
+  const { start: timelineStart, end: timelineEnd, labelInterval } = timeRange;
 
   // position 계산을 직접 수행 (UI 책임)
   const totalMinutes = (timelineEnd - timelineStart) * 60;
