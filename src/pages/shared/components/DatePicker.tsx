@@ -14,7 +14,6 @@ export function DatePicker({ value, onChange, min }: DatePickerProps) {
       value={value}
       min={min}
       onChange={(e) => onChange(e.target.value)}
-      aria-label="날짜 선택"
       css={css`
         box-sizing: border-box;
         font-size: 16px;
