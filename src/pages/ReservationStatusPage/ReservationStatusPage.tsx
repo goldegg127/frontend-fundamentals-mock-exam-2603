@@ -3,22 +3,16 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { css } from '@emotion/react';
 import { SuspenseQueries } from '@suspensive/react-query'
 import { Suspense, ErrorBoundary } from '@suspensive/react'
-import { Spacing, Text } from '_tosslib/components';
+import { Spacing, Text, Button } from '_tosslib/components';
 import { colors } from '_tosslib/constants/colors';
 import type { Reservation } from '_tosslib/server/types';
-import { Divider } from '../../shared/components/Divider';
+import { Divider, Section, Header, ItemsContainer, DatePicker } from '../shared/components';
 import { myReservationsQueryOptions, roomsQueryOptions, reservationsQueryOptions } from 'pages/queries';
-import { getTodayString } from './utils/formatDate';
-import { TIMELINE_END, TIMELINE_START, buildRoomReservationTimelineData } from './domain';
+import { buildRoomReservationTimelineData } from './domain';
+import { getTodayString } from '../shared/utils/formatDate';
 import { findRoomName, formatReservationSummary } from './utils/reservationDisplay';
 import { useCancelReservation } from "./hooks/useCancelReservation";
-
-import { DatePicker } from './components/DatePicker';
-import { Timeline } from './components/Timeline';
-import { ReservationCell } from './components/ReservationCell';
-import { CtaButton } from './components/CtaButton';
-import { Card } from "./components/Card";
-import { MessageBanner, type Message } from "./components/MessageBanner";
+import { Timeline, ReservationCell, Card, MessageBanner, type Message } from './components';
 
 export function ReservationStatusPage() {
   const navigate = useNavigate();
@@ -86,7 +80,6 @@ export function ReservationStatusPage() {
               <Timeline
                 data={buildRoomReservationTimelineData(rooms, reservations)}
                 getRowLabel={(room) => room.name}
-                timeRange={{ start: TIMELINE_START, end: TIMELINE_END, labelInterval: 'hour' }}
                 renderCell={(cell, room, isActive, onToggle) => (
                   <ReservationCell
                     reservation={cell}
@@ -104,13 +97,6 @@ export function ReservationStatusPage() {
       <Divider />
 
       <Section>
-        <h2>
-          <Text typography="t5" fontWeight="bold" color={colors.grey900}>
-            내 예약
-          </Text>
-          <Spacing size={16} />
-        </h2>
-
         {message && (
           <>
             <MessageBanner type={message.type} text={message.text} />
@@ -133,33 +119,51 @@ export function ReservationStatusPage() {
               ]}
             >
               {([{ data: { items: reservations, isEmpty } }, { data: rooms }]) => (
-                <ItemsContainer>
-                  {isEmpty
-                    ? <Card.Empty />
-                    : reservations.map((reservation) => (
-                        <li key={reservation.id}>
-                          <Card
-                            title={findRoomName(rooms, reservation.roomId)}
-                            description={formatReservationSummary(reservation)}
-                            right={
-                              <Card.CancelButton
-                                onClick={(e) => {
-                                  e.stopPropagation();
+                <>
+                  <div css={css`display: flex; align-items: baseline; gap: 6px;`}>
+                    <h2>
+                      <Text typography="t5" fontWeight="bold" color={colors.grey900}>
+                        내 예약
+                      </Text>
+                    </h2>
 
-                                  cancelMutation.mutate(reservation.id, {
-                                    onSuccess: () => {
-                                      setMessage({ type: 'success', text: '예약이 취소되었습니다.' });
-                                    },
-                                    onError: () => {
-                                      setMessage({ type: 'error', text: '취소에 실패했습니다.' });
-                                    },
-                                  });
-                                }}
-                              />}
-                          />
-                        </li>))
-                  }
-                </ItemsContainer>
+                    {reservations.length > 0 && (
+                      <Text typography="t7" fontWeight="medium" color={colors.grey500}>
+                        {reservations.length}건
+                      </Text>
+                    )}
+                  </div>
+
+                  <Spacing size={16} />
+
+                  <ItemsContainer>
+                    {isEmpty
+                      ? <Card.Empty />
+                      : reservations.map((reservation) => (
+                          <li key={reservation.id}>
+                            <Card
+                              title={findRoomName(rooms, reservation.roomId)}
+                              description={formatReservationSummary(reservation)}
+                              right={
+                                <Card.CancelButton
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+
+                                    cancelMutation.mutate(reservation.id, {
+                                      onSuccess: () => {
+                                        setMessage({ type: 'success', text: '예약이 취소되었습니다.' });
+                                      },
+                                      onError: () => {
+                                        setMessage({ type: 'error', text: '취소에 실패했습니다.' });
+                                      },
+                                    });
+                                  }}
+                                />}
+                            />
+                          </li>))
+                    }
+                  </ItemsContainer>
+                </>
               )}
             </SuspenseQueries>
         </Suspense>
@@ -168,50 +172,12 @@ export function ReservationStatusPage() {
       <Divider />
 
       <Section>
-        <CtaButton onClick={() => navigate('/booking')}>
+        <Button display="full" onClick={() => navigate('/booking')}>
           예약하기
-        </CtaButton>
+        </Button>
       </Section>
 
       <Spacing size={24} />
     </div>
-  );
-}
-
-function Header({children} : {children: React.ReactNode}) {
-  return <header 
-    css={css`
-      padding: 0 24px;
-      font-size: 22px;
-      line-height: 31px;
-      color: ${colors.grey900};
-      word-break: keep-all;
-      white-space: pre-line;
-      font-weight: bold;
-    `}
-  >
-    {children}
-  </header>
-}
-
-function Section({children} : {children: React.ReactNode}) {
-  return <section css={css`padding: 0 24px;`}>
-    {children}
-  </section>
-}
-
-function ItemsContainer({children} : {children: React.ReactNode}) {
-  return (
-    <ul 
-      css={css`
-        list-style: none; 
-        padding: 0; 
-        margin: 0; 
-        display: flex; 
-        flex-direction: column; 
-        gap: 10px;`
-      }>
-      {children}
-    </ul>
   );
 }

@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { Button } from '_tosslib/components';
+import { Button, ListRow } from '_tosslib/components';
 import { colors } from '_tosslib/constants/colors';
 import type { ReactNode } from 'react';
 
@@ -13,41 +13,23 @@ export function Card({ title, description, right }: CardProps) {
   return (
     <article
       css={css`
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 14px 16px;
-        border-radius: 14px;
-        background: ${colors.grey50};
-        border: 1px solid ${colors.grey200};
-      `}
-    >
-      <div css={css`flex: 1; min-width: 0;`}>
-        <div
-          css={css`
-            font-size: 15px;
-            font-weight: bold;
-            color: ${colors.grey900};
-            margin-bottom: 4px;
-          `}
-        >
-          {title}
-        </div>
-        <div
-          css={css`
-            font-size: 13px;
-            color: ${colors.grey600};
-          `}
-        >
-          {description}
-        </div>
-      </div>
-      
-      {right && (
-        <div css={css`margin-left: 12px; flex-shrink: 0;`}>
-          {right}
-        </div>
-      )}
+          padding: 14px 16px;
+          border-radius: 14px;
+          background: ${colors.grey50};
+          border: 1px solid ${colors.grey200};
+        `}
+      >
+        <ListRow
+          contents={
+            <ListRow.Text2Rows
+              top={title}
+              topProps={{ typography: 't6', fontWeight: 'bold', color: colors.grey900 }}
+              bottom={description}
+              bottomProps={{ typography: 't7', color: colors.grey600 }}
+            />
+          }
+          right={right}
+        />
     </article>
   );
 }
