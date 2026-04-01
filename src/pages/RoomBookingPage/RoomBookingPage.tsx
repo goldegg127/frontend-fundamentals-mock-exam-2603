@@ -1,47 +1,57 @@
-import { css } from '@emotion/react';
-import { ReactNode, Suspense, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Top, Spacing, Button, Text } from '_tosslib/components';
-import { colors } from '_tosslib/constants/colors';
-import { createReservation } from 'pages/remotes';
-import type { Equipment } from '_tosslib/server/types';
 import axios from 'axios';
-import { BookingFilter, type BookingFilterValue } from './components/BookingFilter';
-import { AvailableRoomList } from './components/AvailableRoomList';
-import { Divider } from '../../shared/components/Divider';
+import { css } from '@emotion/react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { SuspenseQueries } from '@suspensive/react-query';
+import { Spacing, Button, Text } from '_tosslib/components';
+import { colors } from '_tosslib/constants/colors';
+import { DatePicker, Divider, Section, Header } from '../shared/components';
+import { getTodayString } from '../shared/utils/formatDate';
+import { createReservationMutationOptions, queryKey, reservationsQueryOptions, roomsQueryOptions } from 'pages/queries';
+import { ALL_EQUIPMENT } from './constants';
+import { filterAvailableRooms, validateBookingFilter } from './domain';
+import type { BookingFilter } from './types';
+import { buildBookingSearchParams, parseBookingFilter } from './utils/searchParams';
+import { AvailableRoomList, MultiSelect, NumberInput, NumberSelect, TimeSelect } from './components';
 
 export function RoomBookingPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [filter, setFilter] = useState<BookingFilterValue | null>(null);
+  const [filter, setFilter] = useState<BookingFilter>(() => parseBookingFilter(searchParams));
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleFilterChange = (newFilter: BookingFilterValue | null) => {
-    setFilter(newFilter);
+  useEffect(() => {
+    setSearchParams(buildBookingSearchParams(filter), { replace: true });
+  }, [filter, setSearchParams]);
+
+  const validation = useMemo(
+    () => validateBookingFilter(filter.startTime, filter.endTime, filter.attendees),
+    [filter.startTime, filter.endTime, filter.attendees]
+  );
+
+  const isFilterComplete =
+    validation.isValid && filter.startTime !== '' && filter.endTime !== '';
+
+  const updateFilter = (updates: Partial<BookingFilter>) => {
+    setFilter((prev) => ({ ...prev, ...updates }));
     setSelectedRoomId(null);
     setErrorMessage(null);
   };
 
   const createMutation = useMutation({
-    mutationFn: (data: {
-      roomId: string;
-      date: string;
-      start: string;
-      end: string;
-      attendees: number;
-      equipment: Equipment[];
-    }) => createReservation(data),
+    ...createReservationMutationOptions(),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['reservations', variables.date] });
-      queryClient.invalidateQueries({ queryKey: ['myReservations'] });
+      queryClient.invalidateQueries({ queryKey: [queryKey.reservations, variables.date]});
+      queryClient.invalidateQueries({ queryKey: [queryKey.MyReservations]});
     },
   });
 
   const handleBook = async () => {
-    if (!filter) {
+    if (!isFilterComplete) {
       setErrorMessage('예약 조건을 입력해주세요.');
       return;
     }
@@ -81,91 +91,192 @@ export function RoomBookingPage() {
   };
 
   return (
-    <main css={css`background: ${colors.white}; padding-bottom: 40px;`}>
-      <header>
-        <div css={css`padding: 12px 24px 0;`}>
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            aria-label="뒤로가기"
-            css={css`
-              background: none;
-              border: none;
-              padding: 0;
-              cursor: pointer;
-              font-size: 14px;
-              color: ${colors.grey600};
-              &:hover {
-                color: ${colors.grey900};
-              }
-            `}
-          >
-            ← 예약 현황으로
-          </button>
-        </div>
+    <div css={css`background: ${colors.white}; padding-bottom: 40px;`}>
+      <Spacing size={12} />
 
-        <Top.Top03 css={css`padding-left: 24px; padding-right: 24px;`}>
-          예약하기
-        </Top.Top03>
-      </header>
+      <Header>
+        <BackButton onClick={() => navigate('/')}>
+          ← 예약 현황으로
+        </BackButton>
+        <Spacing size={24} />
+
+        <h1>예약하기</h1>
+      </Header>
 
       <Spacing size={24} />
 
       <Section>
-        <Suspense fallback={<div>로딩 중...</div>}>
-          <BookingFilter onFilterChange={handleFilterChange}>
-            <BookingFilter.Title>예약 조건</BookingFilter.Title>
-            
-            <Spacing size={16} />
-            
-            <BookingFilter.DateInput label="날짜" />
+        <section>
+          <Text typography="t5" fontWeight="bold" color={colors.grey900}>
+            예약 조건
+          </Text>
+          <Spacing size={16} />
+
+          <form>
+            <label>
+              <Text as="span" typography="t7" fontWeight="medium" color={colors.grey600}>
+                날짜
+              </Text>
+              <Spacing size={6} />
+
+              <DatePicker
+                value={filter.date}
+                onChange={(date) => updateFilter({ date })}
+                min={getTodayString()}
+              />
+            </label>
 
             <Spacing size={14} />
 
-            <BookingFilter.TimeRange startLabel="시작 시간" endLabel="종료 시간" />
-            
+            <Grid>
+              <label>
+                <Text as="span" typography="t7" fontWeight="medium" color={colors.grey600}>
+                  시작 시간
+                </Text>
+                <Spacing size={6} />
+
+                <TimeSelect
+                  value={filter.startTime}
+                  onChange={(startTime) => updateFilter({ startTime })}
+                  ariaLabel="시작 시간"
+                  excludeLastOption
+                />
+              </label>
+
+              <label>
+                <Text as="span" typography="t7" fontWeight="medium" color={colors.grey600}>
+                  종료 시간
+                </Text>
+                <Spacing size={6} />
+
+                <TimeSelect
+                  value={filter.endTime}
+                  onChange={(endTime) => updateFilter({ endTime })}
+                  ariaLabel="종료 시간"
+                  excludeFirstOption
+                />
+              </label>
+            </Grid>
+
             <Spacing size={14} />
 
-            <div css={css`display: flex; gap: 12px;`}>
-              <BookingFilter.Attendees label="참석 인원" />
-              <BookingFilter.FloorSelect label="선호 층" />
-            </div>
-            
+            <Grid>
+              <label>
+                <Text as="span" typography="t7" fontWeight="medium" color={colors.grey600}>
+                  참석 인원
+                </Text>
+                <Spacing size={6} />
+
+                <NumberInput
+                  value={filter.attendees}
+                  onChange={(attendees) => updateFilter({ attendees })}
+                />
+              </label>
+
+              <label>
+                <Text as="span" typography="t7" fontWeight="medium" color={colors.grey600}>
+                  선호 층
+                </Text>
+                <Spacing size={6} />
+
+                <Suspense fallback>
+                  <SuspenseQueries queries={[roomsQueryOptions()]}>
+                    {([{ data: rooms }]) => {
+                      const floors = [...new Set(rooms.map((room) => room.floor))].sort((a, b) => a - b);
+
+                      return (
+                        <NumberSelect
+                          value={filter.preferredFloor}
+                          options={floors}
+                          onChange={(preferredFloor) => updateFilter({ preferredFloor })}
+                          placeholder="전체"
+                          suffix="층"
+                        />
+                      );
+                    }}
+                  </SuspenseQueries>
+                </Suspense>
+              </label>
+            </Grid>
+
             <Spacing size={14} />
-            
-            <BookingFilter.Equipment label="필요 장비" />
-            
-            <Spacing size={14} />
-            <Spacing size={8} />
-            
-            <BookingFilter.ValidationError />
-          </BookingFilter>
-        </Suspense>
+
+            <fieldset
+              css={css`
+                margin: 0;
+                padding: 0;
+                border: 0;
+                min-width: 0;
+              `}
+            >
+              <Text as="legend" typography="t7" fontWeight="medium" color={colors.grey600}>
+                필요 장비
+              </Text>
+              <Spacing size={8} />
+
+              <MultiSelect
+                value={filter.equipment}
+                data={ALL_EQUIPMENT}
+                onChange={(equipment) => updateFilter({ equipment })}
+              />
+            </fieldset>
+          </form>
+
+          {validation.error && (
+            <>
+              <Spacing size={16} />
+              <div role="alert" css={css`color: ${colors.red500}; font-size: 14px;`}>
+                {validation.error}
+              </div>
+            </>
+          )}
+        </section>
       </Section>
 
       <Divider />
 
-      <Section>
-        <Suspense fallback={<div>로딩 중...</div>}>
-          <AvailableRoomList
-            filter={filter}
-            selectedRoomId={selectedRoomId}
-            onRoomSelect={setSelectedRoomId}
-          />
+      {isFilterComplete && (
+        <Suspense fallback={<div>로딩 중..</div>}>
+          <SuspenseQueries
+            queries={[roomsQueryOptions(), reservationsQueryOptions(filter.date)]}
+          >
+            {([{ data: rooms }, { data: reservations }]) => {
+              const availableRooms = filterAvailableRooms(rooms, reservations, filter);
+
+              return (
+                <Section>
+                  <div css={css`display: flex; align-items: baseline; gap: 6px;`}>
+                    <h2>
+                      <Text typography="t5" fontWeight="bold" color={colors.grey900}>
+                        예약 가능 회의실
+                      </Text>
+                    </h2>
+                    <Text typography="t7" fontWeight="medium" color={colors.grey500}>
+                      {availableRooms.length}개
+                    </Text>
+                  </div>
+                  <Spacing size={16} />
+
+                  <AvailableRoomList
+                    rooms={availableRooms}
+                    selectedRoomId={selectedRoomId}
+                    onSelectRoom={setSelectedRoomId}
+                  />
+              
+                  <Spacing size={16} />
+
+                  <Button display="full" onClick={handleBook} disabled={createMutation.isPending || !selectedRoomId}>
+                    {createMutation.isPending ? '예약 중...' : '확정'}
+                  </Button>
+                </Section>
+              );
+            }}
+          </SuspenseQueries>
         </Suspense>
-
-        {filter && (
-          <>
-            <Spacing size={16} />
-            <Button display="full" onClick={handleBook} disabled={createMutation.isPending}>
-              {createMutation.isPending ? '예약 중...' : '확정'}
-            </Button>
-          </>
-        )}
-
+      )}
 
       {errorMessage && (
-        <div css={css`padding: 0 24px;`}>
+        <>
           <Spacing size={12} />
           <div
             css={css`
@@ -181,17 +292,39 @@ export function RoomBookingPage() {
               {errorMessage}
             </Text>
           </div>
-        </div>
+        </>
       )}
-      </Section>
 
       <Spacing size={24} />
-    </main>
+    </div>
   );
 }
 
-function Section({children} : {children: ReactNode}) {
-  return <section css={css`padding: 0 24px;`}>
+function BackButton({ children, onClick } : { children : React.ReactNode, onClick : () => void }) {
+  return (
+    <button 
+      type="button"
+      onClick={onClick}
+      aria-label="뒤로가기"
+      css={css`
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        font-size: 14px;
+        color: ${colors.grey600};
+
+        &:hover {
+          color: ${colors.grey900};
+        }
+      `}>
+      {children}
+    </button>
+  );
+}
+
+function Grid({ children } : { children : React.ReactNode }) {
+  return <div css={css`display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr);`}>
     {children}
-  </section>
+  </div>
 }

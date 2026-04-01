@@ -1,6 +1,12 @@
 import { queryOptions } from '@tanstack/react-query';
 import { mutationOptions } from '@suspensive/react-query';
-import { getRooms, getReservations, getMyReservations, cancelReservation } from 'pages/remotes';
+import {
+  getRooms,
+  getReservations,
+  getMyReservations,
+  cancelReservation,
+  createReservation,
+} from 'pages/remotes';
 
 export const queryKey = {
   rooms: 'rooms',
@@ -35,3 +41,8 @@ export const myReservationsQueryOptions = () => queryOptions(
 export const cancelReservationMutationOptions = () => mutationOptions({
   mutationFn: (reservationId: string) => cancelReservation(reservationId),
 });
+
+export const createReservationMutationOptions = () =>
+  mutationOptions({
+    mutationFn: (data: Parameters<typeof createReservation>[0]) => createReservation(data),
+  });
