@@ -1,32 +1,43 @@
 import axios from 'axios';
 import { css } from '@emotion/react';
-import { Suspense, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Suspense, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { SuspenseQueries } from '@suspensive/react-query';
+import { useQueryParams } from 'use-query-params';
 import { Spacing, Button, Text } from '_tosslib/components';
 import { colors } from '_tosslib/constants/colors';
 import { DatePicker, Divider, Section, Header } from '../shared/components';
-import { getTodayString } from '../shared/utils/formatDate';
+import { formatDate } from '../shared/utils/formatDate';
 import { createReservationMutationOptions, queryKey, reservationsQueryOptions, roomsQueryOptions } from 'pages/queries';
 import { ALL_EQUIPMENT } from './constants';
 import { filterAvailableRooms, validateBookingFilter } from './domain';
 import type { BookingFilter } from './types';
-import { buildBookingSearchParams, parseBookingFilter } from './utils/searchParams';
 import { AvailableRoomList, MultiSelect, NumberInput, NumberSelect, TimeSelect } from './components';
+import { bookingFilterQueryParams } from './queryParams';
 
 export function RoomBookingPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [filter, setFilter] = useState<BookingFilter>(() => parseBookingFilter(searchParams));
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    setSearchParams(buildBookingSearchParams(filter), { replace: true });
-  }, [filter, setSearchParams]);
+  const [queryFilter, setQueryFilter] = useQueryParams(bookingFilterQueryParams, {
+    removeDefaultsFromUrl: true,
+  });
+
+  const filter = useMemo<BookingFilter>(
+    () => ({
+      date: queryFilter.date,
+      startTime: queryFilter.startTime,
+      endTime: queryFilter.endTime,
+      attendees: queryFilter.attendees,
+      equipment: queryFilter.equipment,
+      preferredFloor: queryFilter.floor ?? null,
+    }),
+    [queryFilter]
+  );
 
   const validation = useMemo(
     () => validateBookingFilter(filter.startTime, filter.endTime, filter.attendees),
@@ -37,18 +48,20 @@ export function RoomBookingPage() {
     validation.isValid && filter.startTime !== '' && filter.endTime !== '';
 
   const updateFilter = (updates: Partial<BookingFilter>) => {
-    setFilter((prev) => ({ ...prev, ...updates }));
+    const { preferredFloor, ...rest } = updates;
+
+    setQueryFilter(
+      {
+        ...rest,
+        ...(preferredFloor !== undefined ? { floor: preferredFloor } : {}),
+      },
+      'replaceIn'
+    );
     setSelectedRoomId(null);
     setErrorMessage(null);
   };
 
-  const createMutation = useMutation({
-    ...createReservationMutationOptions(),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: [queryKey.reservations, variables.date]});
-      queryClient.invalidateQueries({ queryKey: [queryKey.MyReservations]});
-    },
-  });
+  const createMutation = useMutation(createReservationMutationOptions());
 
   const handleBook = async () => {
     if (!isFilterComplete) {
@@ -72,6 +85,8 @@ export function RoomBookingPage() {
       });
 
       if ('ok' in result && result.ok) {
+        queryClient.invalidateQueries({ queryKey: [queryKey.reservations, filter.date] });
+        queryClient.invalidateQueries({ queryKey: [queryKey.MyReservations] });
         navigate('/', { state: { message: '예약이 완료되었습니다!' } });
         return;
       }
@@ -122,7 +137,7 @@ export function RoomBookingPage() {
               <DatePicker
                 value={filter.date}
                 onChange={(date) => updateFilter({ date })}
-                min={getTodayString()}
+                min={formatDate(new Date())}
               />
             </label>
 
