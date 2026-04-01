@@ -23,15 +23,18 @@ interface TimelineProps<TRow extends { id: string }, TCell extends { id: string;
   data: TimelineData<TRow, TCell>[];
   getRowLabel: (row: TRow) => string;
   timeRange?: TimeRange;
-  renderTooltip?: (cell: TCell, row: TRow) => React.ReactNode;
-  getCellAriaLabel?: (cell: TCell, row: TRow) => string;
+  renderCell: (
+    cell: TCell,
+    row: TRow,
+    isActive: boolean,
+    onToggle: () => void
+  ) => React.ReactNode;
 }
 
 export function Timeline<TRow extends { id: string }, TCell extends { id: string; start: string; end: string }>({
   data,
   getRowLabel,
-  renderTooltip,
-  getCellAriaLabel,
+  renderCell,
   timeRange = { start: 9, end: 20, labelInterval: 'hour' },
 }: TimelineProps<TRow, TCell>) {
   const [activeCellKey, setActiveCellKey] = useState<string | null>(null);
@@ -86,15 +89,11 @@ export function Timeline<TRow extends { id: string }, TCell extends { id: string
                 key={cell.id}
                 position={{ left, width }}
               >
-                <CellBlock
-                  isActive={isActive}
-                  onClick={() => setActiveCellKey(isActive ? null : cell.id)}
-                  ariaLabel={getCellAriaLabel?.(cell, item.row)}
-                  ariaExpanded={isActive}
-                />
-
-                {isActive && renderTooltip && (
-                  <Tooltip>{renderTooltip(cell, item.row)}</Tooltip>
+                {renderCell(
+                  cell,
+                  item.row,
+                  isActive,
+                  () => setActiveCellKey(isActive ? null : cell.id)
                 )}
               </TimelineCell>
             );
@@ -201,79 +200,6 @@ function TimelineCell({ position, children }: TimelineCellProps) {
         left: ${position.left}%;
         width: ${position.width}%;
         height: 100%;
-      `}
-    >
-      {children}
-    </div>
-  );
-}
-
-interface CellBlockProps {
-  isActive: boolean;
-  onClick: () => void;
-  ariaLabel?: string;
-  ariaExpanded?: boolean;
-}
-
-function CellBlock({
-  isActive,
-  onClick,
-  ariaLabel,
-  ariaExpanded
-}: CellBlockProps) {
-  return (
-    <div
-      role="button"
-      aria-label={ariaLabel}
-      aria-expanded={ariaExpanded}
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick();
-        }
-      }}
-      css={css`
-        width: 100%;
-        height: 100%;
-        background: ${colors.blue400};
-        border-radius: 4px;
-        opacity: ${isActive ? 1 : 0.75};
-        cursor: pointer;
-        transition: opacity 0.15s;
-        &:hover {
-          opacity: 1;
-        }
-        &:focus {
-          outline: 2px solid ${colors.blue600};
-          outline-offset: 2px;
-        }
-      `}
-    />
-  );
-}
-
-// 툴팁 컴포넌트 (스타일만 담당)
-function Tooltip({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      role="renderTooltip"
-      css={css`
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        margin-top: 6px;
-        background: ${colors.grey900};
-        color: ${colors.white};
-        padding: 8px 12px;
-        border-radius: 8px;
-        font-size: 12px;
-        white-space: nowrap;
-        z-index: 10;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-        line-height: 1.6;
       `}
     >
       {children}

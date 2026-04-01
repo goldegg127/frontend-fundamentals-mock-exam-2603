@@ -9,12 +9,13 @@ import type { Reservation } from '_tosslib/server/types';
 import { Divider } from '../../shared/components/Divider';
 import { myReservationsQueryOptions, roomsQueryOptions, reservationsQueryOptions } from 'pages/queries';
 import { getTodayString } from './utils/formatDate';
-import { getRoomName, getReservationSpec, getBookingRoomTable } from "./domain";
+import { TIMELINE_END, TIMELINE_START, buildRoomReservationTimelineData } from './domain';
+import { findRoomName, formatReservationSummary } from './utils/reservationDisplay';
 import { useCancelReservation } from "./hooks/useCancelReservation";
-import { formatEquipmentList } from './utils/formatEquipment';
 
 import { DatePicker } from './components/DatePicker';
 import { Timeline } from './components/Timeline';
+import { ReservationCell } from './components/ReservationCell';
 import { CtaButton } from './components/CtaButton';
 import { Card } from "./components/Card";
 import { MessageBanner, type Message } from "./components/MessageBanner";
@@ -83,17 +84,16 @@ export function ReservationStatusPage() {
           <SuspenseQueries queries={[roomsQueryOptions(), reservationsQueryOptions(selectedDate)]}>
             {([{ data: rooms }, { data: reservations }]) => (
               <Timeline
+                data={buildRoomReservationTimelineData(rooms, reservations)}
                 getRowLabel={(room) => room.name}
-                data={getBookingRoomTable(rooms, reservations)}
-                getCellAriaLabel={(cell, room) => `${room.name} ${cell.start}-${cell.end} 예약 상세`}
-                renderTooltip={(cell) => (
-                  <>
-                    <div>{cell.start} ~ {cell.end}</div>
-                    <div>{cell.attendees}명</div>
-                    {cell.equipment.length > 0 && (
-                      <div>{formatEquipmentList(cell.equipment)}</div>
-                    )}
-                  </>
+                timeRange={{ start: TIMELINE_START, end: TIMELINE_END, labelInterval: 'halfHour' }}
+                renderCell={(cell, room, isActive, onToggle) => (
+                  <ReservationCell
+                    reservation={cell}
+                    room={room}
+                    isActive={isActive}
+                    onToggle={onToggle}
+                  />
                 )}
               />
             )}
@@ -139,8 +139,8 @@ export function ReservationStatusPage() {
                     : reservations.map((reservation) => (
                         <li key={reservation.id}>
                           <Card
-                            top={getRoomName(rooms, reservation.roomId)}
-                            bottom={getReservationSpec(reservation)}
+                            top={findRoomName(rooms, reservation.roomId)}
+                            bottom={formatReservationSummary(reservation)}
                             right={
                               <Card.CancelButton
                                 onClick={(e) => {
